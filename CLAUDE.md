@@ -17,7 +17,7 @@
 | 找什麼 | 去哪 |
 |---|---|
 | 「參考池」欄位 / schema(SSOT) | `src/types.ts`:`RefRow` / `POOL_COLUMNS`(= TeaBus-VOC `schema.REFS` 4 欄;id 已於 2026-06-24 砍)+ `PLATFORM_CODE`(顯示名→小寫碼) |
-| 去重 key 演算法(連結→key) | `src/pipeline/index.ts`:`dedupKey`(平台:影片id 優先,抽不到退連結路徑;對齊 TeaBus-VOC `cli._dedup_key`,原 `sync._dedup_key`、sync.py 砍除後邏輯搬到 cli) |
+| 去重 key 演算法(連結→key) | `src/pipeline/index.ts`:`dedupKey`(平台:影片id 優先,抽不到退連結路徑;對齊 TeaBus-VOC `sync._dedup_key`) |
 | 抽網址 + 備註 | `src/pipeline/parse.ts` |
 | 清網址(追蹤參數/行動版/短網址) | `src/pipeline/cleanUrl.ts` |
 | 判斷平台(domain 優先序) | `src/pipeline/detectPlatform.ts` |
@@ -71,7 +71,7 @@ bot 是上游:**直接寫** Google 表「**短影音進度N**」(`<TeaBus-VOC sh
   - `挑`:checkbox,bot 寫**留空**(=還沒挑)。人在 Sheet 勾它 → GAS 即時搬待拍。
   - `加入日期`:ISO `YYYY-MM-DD`(`todayIsoTaipei`;TeaBus-VOC `normalize_date` 也吃 ISO)。
 - **NOTE/VIDEO_ID/SENDER 不進參考池**(TeaBus-VOC 設計如此,不是漏):參考池只存不可化約的 4 欄,梗/點子在搬進待拍後填「待拍.備註」。去重 key 寫入前由連結即時推導(`dedupKey`),不需存欄。
-- **去重(寫入前,bot 端負責)**:`src/pipeline/index.ts` 的 `dedupKey` 對齊 TeaBus-VOC `cli._dedup_key`(原 `sync._dedup_key`,sync.py 砍除後邏輯搬到 cli)—— 優先「平台:影片id」(用 bot `detectPlatform`+`extractVideoId`,讓 youtu.be/watch?v=/shorts 收斂),抽不到才退連結路徑(砍 query/fragment + 去尾斜線 + lower)。`collect` 寫入前讀現有「連結」欄、候選與既有列同支推 key 比對,重複跳過。**全表比對、無時間窗**(參考池永久池,不 prune)。
+- **去重(寫入前,bot 端負責)**:`src/pipeline/index.ts` 的 `dedupKey` 對齊 TeaBus-VOC `sync._dedup_key` —— 優先「平台:影片id」(用 bot `detectPlatform`+`extractVideoId`,讓 youtu.be/watch?v=/shorts 收斂),抽不到才退連結路徑(砍 query/fragment + 去尾斜線 + lower)。`collect` 寫入前讀現有「連結」欄、候選與既有列同支推 key 比對,重複跳過。**全表比對、無時間窗**(參考池永久池,不 prune)。
   - **範圍限制(已知,刻意)**:只比對**參考池**的「連結」欄,不比對 待拍/完成。被 `pick` 搬走的素材若再次分享,bot 會當新素材再收一筆(舊 `sync.py` 會連 待拍/完成 一起比)。換取 bot 不耦合 TeaBus-VOC 全 schema;若日後重複太多,再在 bot 端擴比對範圍。
 - **挑片 = 在 Sheet 勾「挑」(bot 不參與)**:人在「參考池」勾「挑」checkbox → TeaBus-VOC 的 GAS `pickScan_`(onEdit simple trigger)即時把該列整列搬進待拍、發 T 號、刪參考池本列。bot 沒有挑片指令。
   - **`/pick` 已退役(2026-06-23)**:原本 `/pick R####` 靠 `id`(R 號)在參考池找列打勾。但 bot 直寫的列 `id` 留空(無 R 號),`/pick` 定位不到;且本來就要打字,單人作業多餘。連 `bot/handlers/pick.ts` + `storage/poolPick.ts` 一起砍。挑片統一走 Sheet 勾「挑」。
