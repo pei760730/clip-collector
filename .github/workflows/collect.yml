@@ -5,7 +5,7 @@ name: collect
 # Telegram 保留未領更新約 24h,只要間隔 < 24h 就不漏訊息。
 on:
   schedule:
-    - cron: "0 * * * *" # 每小時整點(UTC);收訊息延遲最多約 1 小時
+    - cron: "*/5 * * * *" # 每 5 分鐘;收訊息延遲約 5–15 分(GitHub 排程會拖,非秒到)
   workflow_dispatch: {} # 手動補跑
 
 # 同時只跑一個,避免兩個 job 並行領 getUpdates 互搶(會漏 ack)。
