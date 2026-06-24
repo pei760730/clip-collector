@@ -34,7 +34,7 @@ console.log("參考池存在:", tabs.includes(POOL), tabs.includes(POOL) ? "" : 
 if (tabs.includes(POOL)) {
   const hdr = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `'${POOL}'!A1:E1`,
+    range: `'${POOL}'!A1:D1`,
   });
-  console.log("參考池表頭:", (hdr.data.values?.[0] ?? []).join(" / "), "(期望 id / 平台 / 連結 / 挑 / 加入日期)");
+  console.log("參考池表頭:", (hdr.data.values?.[0] ?? []).join(" / "), "(期望 平台 / 連結 / 挑 / 加入日期)");
 }
