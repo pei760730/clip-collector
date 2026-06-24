@@ -1,6 +1,6 @@
 /**
- * 對接驗證(唯讀):用 TeaBus-VOC 的 service account 連 TeaBus-VOC 表,確認「參考池」在、
- * 且表頭與 bot 的 POOL_COLUMNS(= TeaBus-VOC schema.REFS)**完全對上**,不符就 exit 1。
+ * 對接驗證(唯讀):用 VOC 的 service account 連 VOC 表,確認「參考池」在、
+ * 且表頭與 bot 的 POOL_COLUMNS(= VOC schema.REFS)**完全對上**,不符就 exit 1。
  * 期望欄從 POOL_COLUMNS 推導(不寫死),所以改契約不會讓這支過時。
  * 跑法:npx tsx scripts/verify-sheet.ts(需先在 .env 設 GOOGLE_SHEET_ID)
  *
@@ -13,7 +13,7 @@ import { google } from "googleapis";
 import { POOL_COLUMNS } from "../src/types.js";
 
 const SHEET_ID = process.env.GOOGLE_SHEET_ID ?? "";
-if (!SHEET_ID) throw new Error("缺 GOOGLE_SHEET_ID（請設 .env，指向 TeaBus-VOC 的表）");
+if (!SHEET_ID) throw new Error("缺 GOOGLE_SHEET_ID（請設 .env，指向 VOC 的表）");
 const POOL = "參考池";
 const expected = POOL_COLUMNS as string[];
 
@@ -48,7 +48,7 @@ console.log("表名:", meta.data.properties?.title);
 console.log("現有分頁:", tabs.join(" / "));
 
 if (!tabs.includes(POOL)) {
-  console.error(`✗ 找不到「${POOL}」分頁(請先 TeaBus-VOC init-sheet 建表)。`);
+  console.error(`✗ 找不到「${POOL}」分頁(請先 VOC init-sheet 建表)。`);
   process.exit(1);
 }
 
@@ -61,7 +61,7 @@ const aligned = header.length === expected.length && expected.every((c, i) => he
 console.log("參考池表頭:", header.join(" / "));
 console.log("期望(POOL_COLUMNS):", expected.join(" / "));
 if (!aligned) {
-  console.error("✗ 表頭與 POOL_COLUMNS 不一致(跨 repo 契約漂移?對齊 TeaBus-VOC schema.REFS)。");
+  console.error("✗ 表頭與 POOL_COLUMNS 不一致(跨 repo 契約漂移?對齊 VOC schema.REFS)。");
   process.exit(1);
 }
 console.log("✓ 表頭對齊。");

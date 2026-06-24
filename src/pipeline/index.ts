@@ -24,7 +24,7 @@ export interface Draft {
 }
 
 /**
- * 連結 → 去重 key(對齊 TeaBus-VOC `cli._dedup_key`,跨 repo 行為一致)。
+ * 連結 → 去重 key(對齊 VOC `cli._dedup_key`,跨 repo 行為一致)。
  *
  * 優先用「平台:影片id」當 key —— YouTube `watch?v=AAA` 與 `watch?v=BBB` 不會在砍 query 後
  * 塌成同一個 `.../watch` 被誤判重複;同支影片的 `youtu.be/`、`shorts/`、`watch?v=` 反而收斂

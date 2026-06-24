@@ -1,7 +1,7 @@
-# AGENTS.md — Codex CLI 行為規則(TeaBus-ClipBot)
+# AGENTS.md — Codex CLI 行為規則(clip-collector)
 
-> 這份是給 **Codex** 的。repo 的權威治理檔仍是 **`CLAUDE.md`**(永久紅線、資料地圖、技術不變式、§6 與 TeaBus-VOC 對接契約)。Codex 動工前先讀 `CLAUDE.md`。
-> TeaBus-ClipBot = Telegram 短影音收集 bot,取代舊 n8n 流程。貼「連結+備註」→ 解析→清網址→判平台→抽 video ID→去重→**直接寫 TeaBus-VOC 的 Google Sheet「參考池」**。是 **TeaBus-VOC 的上游**(2026-06-22 起直寫參考池,廢「暫存區→sync-pool」中間層)。
+> 這份是給 **Codex** 的。repo 的權威治理檔仍是 **`CLAUDE.md`**(永久紅線、資料地圖、技術不變式、§6 與 VOC 對接契約)。Codex 動工前先讀 `CLAUDE.md`。
+> clip-collector = Telegram 短影音收集 bot,取代舊 n8n 流程。貼「連結+備註」→ 解析→清網址→判平台→抽 video ID→去重→**直接寫 VOC 的 Google Sheet「參考池」**。是 **VOC 的上游**(2026-06-22 起直寫參考池,廢「暫存區→sync-pool」中間層)。
 
 ## 角色
 
@@ -18,13 +18,13 @@ Codex 是這個 repo 的**工程管線 agent**:在 branch 上做可審查的 cod
 
 **預設不碰(Claude Code / Owner 的領域):**
 - **Live bot 操作 / Sheet 實際寫入**(真的啟動 bot 收訊息、`STORAGE=sheets` 跑真表)
-- **與 TeaBus-VOC 的對接契約**(`CLAUDE.md` §6 的參考池欄位:bot 直寫 TeaBus-VOC `schema.REFS` 5 欄 `id/平台/連結/挑/加入日期`)—— 改欄名要兩 repo 一起,屬跨 repo 協調
+- **與 VOC 的對接契約**(`CLAUDE.md` §6 的參考池欄位:bot 直寫 VOC `schema.REFS` 5 欄 `id/平台/連結/挑/加入日期`)—— 改欄名要兩 repo 一起,屬跨 repo 協調
 - **schema 設計判斷**(`POOL_COLUMNS` 加/砍欄、平台規則、去重策略的大方向)
 - `service_account.json`、`.env`(機密)
 
 ## 與 Claude Code 分工
 
-- **Claude Code / Owner**:設計判斷(schema、平台/去重策略)、跨 repo 對接協調(TeaBus-VOC 契約、SA 分享)、live bot/Sheet 操作、`CLAUDE.md` 規則維護。
+- **Claude Code / Owner**:設計判斷(schema、平台/去重策略)、跨 repo 對接協調(VOC 契約、SA 分享)、live bot/Sheet 操作、`CLAUDE.md` 規則維護。
 - **Codex**:在 branch 上做可審查工程變更(code/tests/CI/Docker)、跑驗證、整理 commit/PR。
 - 跨領域任務:用下方 Handoff 格式交回 Claude Code 判斷,handoff 保持窄。
 - 誰最後改 code,誰在回報講清楚改了什麼、跑了哪些驗證、還剩哪些風險;不要假設對方已知上下文。

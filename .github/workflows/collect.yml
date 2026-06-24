@@ -53,5 +53,5 @@ jobs:
           TG_CHAT: ${{ secrets.ERROR_CHAT_ID }}
         run: |
           if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then echo "no TELEGRAM_BOT_TOKEN / ERROR_CHAT_ID → skip"; exit 0; fi
-          MSG="🔴 TeaBus-ClipBot collect 失敗(可能參考池表頭漂移/ensureHeader 拒寫)。${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MSG="🔴 clip-collector collect 失敗(可能參考池表頭漂移/ensureHeader 拒寫)。${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           curl -sS --max-time 20 "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" --data-urlencode "chat_id=${TG_CHAT}" --data-urlencode "text=${MSG}" >/dev/null && echo "telegram notified" || echo "telegram notify failed (ignored)"
