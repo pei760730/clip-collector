@@ -11,7 +11,7 @@ for (const u of [
   "https://example.com/whatever",
 ]) {
   const r = detectPlatform(u);
-  console.log(`${u}\n   → ${r.platform} (${r.confidence}/${r.method})`);
+  console.log(`${u}\n   → ${r.platform} (${r.method})`);
 }
 
 console.log("\n--- D. YouTube 抽到非影片 id(channel/@user)---");
