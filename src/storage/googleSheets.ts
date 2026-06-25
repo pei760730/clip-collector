@@ -52,9 +52,23 @@ async function withRetry<T>(
       return await fn();
     } catch (err) {
       lastErr = err;
-      const e = err as { code?: number; response?: { status?: number } };
+      const e = err as {
+        code?: number | string;
+        response?: { status?: number };
+        message?: string;
+      };
       const code = e?.code ?? e?.response?.status;
-      const retryable = code === 429 || (typeof code === "number" && code >= 500 && code < 600);
+      const httpRetryable =
+        code === 429 || (typeof code === "number" && code >= 500 && code < 600);
+      // 取 token / 連 googleapis 時的暫時性網路錯誤(WSL2 MTU 丟大封包 → "Premature close",
+      // 或連線被重置)沒有 HTTP code,但同樣該重試 —— 這類佔約 20% cron 偶發紅燈。
+      // 用 node 的 errno code 與訊息雙重比對,別把真正的錯誤(如表頭不符)當暫時性吞掉。
+      const transientCodes = new Set(["ECONNRESET", "ETIMEDOUT", "ECONNREFUSED", "EPIPE", "EAI_AGAIN"]);
+      const msg = typeof e?.message === "string" ? e.message : "";
+      const networkRetryable =
+        (typeof code === "string" && transientCodes.has(code)) ||
+        /premature close|socket hang up|network|ECONNRESET|ETIMEDOUT/i.test(msg);
+      const retryable = httpRetryable || networkRetryable;
       if (!retryable || attempt === tries) throw err;
       if (opts.alreadyDone) {
         try {
