@@ -157,6 +157,8 @@ export class GoogleSheetsStorage implements Storage {
   private readonly sheetId: string;
   private readonly sheetName: string;
   private layoutCache?: HeaderLayout;
+  /** 去重索引快取(dedupKey→列)。單輪生命週期內讀一次全表建好;append 成功後併入新 key。 */
+  private dedupCache?: Map<string, RefRow>;
 
   constructor(opts: GoogleSheetsOptions) {
     this.sheetId = opts.sheetId;
@@ -244,6 +246,20 @@ export class GoogleSheetsStorage implements Storage {
     }));
   }
 
+  /**
+   * 去重索引:第一次讀全表建 Map(一次 values.get),之後直接回快取(O(1)、無網路)。
+   * append 成功後會把新 key 併入這份快取(見下方),故同輪稍後的重複連結也擋得到。
+   */
+  async dedupIndex(): Promise<Map<string, RefRow>> {
+    if (this.dedupCache) return this.dedupCache;
+    const index = new Map<string, RefRow>();
+    for (const h of await this.readRows()) {
+      index.set(dedupKey(h.row.連結), h.row);
+    }
+    this.dedupCache = index;
+    return index;
+  }
+
   async append(row: RefRow): Promise<void> {
     const layout = await this.layout();
     const key = dedupKey(row.連結);
@@ -260,10 +276,13 @@ export class GoogleSheetsStorage implements Storage {
       {
         // 冪等護欄:呼叫端(collect)已先去重,故重試前若這連結 key 已在表上,
         // 必是上一次「寫成功但回應遺失」留下的,視為完成,避免重試雙寫。
+        // (僅重試路徑才觸發此全表查;正常路徑不打。)
         alreadyDone: async () =>
           !!key && (await this.readRows()).some((h) => dedupKey(h.row.連結) === key),
       },
     );
+    // 寫入成功 → 併入去重快取,讓同輪稍後的重複連結不必重讀全表也擋得到。
+    if (key) this.dedupCache?.set(key, row);
   }
 
   async setHot(key: string, hot: string): Promise<boolean> {
