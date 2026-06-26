@@ -266,6 +266,24 @@ export class GoogleSheetsStorage implements Storage {
     );
   }
 
+  async setHot(key: string, hot: string): Promise<boolean> {
+    const layout = await this.layout();
+    const hotIdx = layout.indexOf["夯度"]; // POOL_COLUMNS 含夯度 → layout 必有(否則 layout() 早已 fail-fast)
+    if (hotIdx === undefined) return false;
+    const target = (await this.readRows()).find((h) => dedupKey(h.row.連結) === key);
+    if (!target) return false; // 已挑走 / 找不到
+    const a1 = `${colLetter(hotIdx)}${target.rowNumber}`;
+    await withRetry("setHot", () =>
+      this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.sheetId,
+        range: this.range(a1),
+        valueInputOption: "RAW",
+        requestBody: { values: [[hot]] },
+      }),
+    );
+    return true;
+  }
+
   async stats(opts: { recentLimit: number; nowMs: number }): Promise<StatsSummary> {
     const rows = await this.readAll();
     return computeStats(rows, opts);

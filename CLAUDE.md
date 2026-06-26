@@ -16,7 +16,7 @@
 
 | 找什麼 | 去哪 |
 |---|---|
-| 「參考池」欄位 / schema(SSOT) | `src/types.ts`:`RefRow` / `POOL_COLUMNS`(= VOC `schema.REFS` 4 欄;id 已於 2026-06-24 砍)+ `PLATFORM_CODE`(顯示名→小寫碼) |
+| 「參考池」欄位 / schema(SSOT) | `src/types.ts`:`RefRow` / `POOL_COLUMNS`(= VOC `schema.REFS` 5 欄;id 已於 2026-06-24 砍、夯度 於 2026-06-26 加在最後)+ `HOT_VALUES` + `PLATFORM_CODE`(顯示名→小寫碼) |
 | 去重 key 演算法(連結→key) | `src/pipeline/index.ts`:`dedupKey`(平台:影片id 優先,抽不到退連結路徑;對齊 VOC `cli._dedup_key`,原 `sync._dedup_key`、sync.py 砍除後邏輯搬到 cli) |
 | 抽網址 + 備註 | `src/pipeline/parse.ts` |
 | 清網址(追蹤參數/行動版/短網址) | `src/pipeline/cleanUrl.ts` |
@@ -64,13 +64,14 @@ bot 是上游:**直接寫** Google 表「**短影音進度N**」(已配置並運
 
 - **同一張表**:bot `GOOGLE_SHEET_ID`(由 GitHub secret 注入,運作中)必須 = VOC `VOC_SPREADSHEET_ID`。憑證共用 VOC 的 service account(由 secret `GOOGLE_SERVICE_ACCOUNT_JSON` 注入)。
 - **參考池由 VOC 擁有,bot 不自建/不改表頭**:VOC `init-sheet` 建「參考池」。bot `GoogleSheetsStorage.ensureHeader` 只**驗表頭對齊**,缺分頁 / 表頭不齊一律 fail-fast(不替 VOC 動表結構,避免錯欄寫入靜默毀 VOC 的池)。
-- **契約欄位 = VOC `schema.REFS` 4 欄(改名要兩 repo 一起)**。bot append 用固定欄序硬塞,**欄名 + 順序**都要對上;由 `tests/contract.test.ts` 守(改欄名 → CI 紅):
+- **契約欄位 = VOC `schema.REFS` 5 欄(改名要兩 repo 一起)**。bot append 依**實際表頭具名解析**(非固定欄序),**欄名 + 順序**都要對上;由 `tests/contract.test.ts` 守(改欄名 → CI 紅):
   - (`id` 已於 2026-06-24 砍除:純流水號、非去重 key,挑走搬待拍另發 T 號不沿用 → 廢標籤。)
   - `平台`:**小寫碼**(`PLATFORM_CODE`:tiktok/youtube/facebook/instagram/threads/x/douyin/xiaohongshu;認不得 → `unknown`)。VOC 全系統用小寫碼。
   - `連結`:乾淨連結 —— 「打開」+ 去重的唯一 key。
   - `挑`:checkbox,bot 寫**留空**(=還沒挑)。人在 Sheet 勾它 → GAS 即時搬待拍。
   - `加入日期`:ISO `YYYY-MM-DD`(`todayIsoTaipei`;VOC `normalize_date` 也吃 ISO)。
-- **NOTE/VIDEO_ID/SENDER 不進參考池**(VOC 設計如此,不是漏):參考池只存不可化約的 4 欄,梗/點子在搬進待拍後填「待拍.備註」。去重 key 寫入前由連結即時推導(`dedupKey`),不需存欄。
+  - `夯度`(2026-06-26 加,**必在最後一欄**:VOC `init-sheet` 只改表頭,插中間會錯位舊資料):收錄時 bot 寫**留空**;回覆掛一排 inline 按鈕(夯爆了/NPC/拉完了),分享者點 → `bot.action` callback `storage.setHot(dedupKey, 值)` 回填該列。值集合 = `HOT_VALUES`(鏡像 VOC `schema.HOT_VALUES`)。
+- **NOTE/VIDEO_ID/SENDER 不進參考池**(VOC 設計如此,不是漏):參考池只存不可化約的 5 欄,梗/點子在搬進待拍後填「待拍.備註」。去重 key 寫入前由連結即時推導(`dedupKey`),不需存欄。
 - **去重(寫入前,bot 端負責)**:`src/pipeline/index.ts` 的 `dedupKey` 對齊 VOC `cli._dedup_key`(原 `sync._dedup_key`,sync.py 砍除後邏輯搬到 cli)—— 優先「平台:影片id」(用 bot `detectPlatform`+`extractVideoId`,讓 youtu.be/watch?v=/shorts 收斂),抽不到才退連結路徑(砍 query/fragment + 去尾斜線 + lower)。`collect` 寫入前讀現有「連結」欄、候選與既有列同支推 key 比對,重複跳過。**全表比對、無時間窗**(參考池永久池,不 prune)。
   - **範圍限制(已知,刻意)**:只比對**參考池**的「連結」欄,不比對 待拍/完成。被 `pick` 搬走的素材若再次分享,bot 會當新素材再收一筆(舊 `sync.py` 會連 待拍/完成 一起比)。換取 bot 不耦合 VOC 全 schema;若日後重複太多,再在 bot 端擴比對範圍。
 - **挑片 = 在 Sheet 勾「挑」(bot 不參與)**:人在「參考池」勾「挑」checkbox → VOC 的 GAS `pickScan_`(onEdit simple trigger)即時把該列整列搬進待拍、發 T 號、刪參考池本列。bot 沒有挑片指令。

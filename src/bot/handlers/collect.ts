@@ -44,6 +44,11 @@ export interface CollectResult {
   reply: string;
   /** 有值 → 也要通知 error chat。 */
   error?: string;
+  /**
+   * 收錄成功(新增或已存在)時帶這支的 dedupKey,讓 router 掛「夯度」inline 按鈕;
+   * 點按鈕的 callback 用它定位該列回填夯度。看不懂/寫入失敗時不帶(不掛按鈕)。
+   */
+  hotKey?: string;
 }
 
 export async function runCollect(
@@ -79,7 +84,8 @@ export async function runCollect(
     const existing = await deps.storage.readRows();
     const hit = existing.find((h) => dedupKey(h.row.連結) === draft.dedupKey);
     if (hit) {
-      return { reply: duplicateMsg(hit.row) };
+      // 已收過也讓他能(重)標夯度:帶同一支的 key。
+      return { reply: duplicateMsg(hit.row), hotKey: draft.dedupKey };
     }
 
     try {
@@ -102,6 +108,7 @@ export async function runCollect(
         isShortUrl: draft.isShortUrl,
         note: draft.note,
       }),
+      hotKey: draft.dedupKey,
     };
   });
 }

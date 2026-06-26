@@ -72,11 +72,12 @@ export interface VideoIdInfo {
 /**
  * 「參考池」一列資料 —— 欄位即 voc `schema.REFS`,鍵名/順序就是 Sheet 表頭,不要改。
  *
- * voc 參考池 4 欄(2026-06-24 契約;砍掉 id):
+ * voc 參考池 5 欄(2026-06-26 契約;砍掉 id,加 夯度):
  * - 平台      :小寫碼(PLATFORM_CODE)。
  * - 連結      :乾淨連結 —— 「打開」+ 去重的唯一 key(= 參考池的身份)。
  * - 挑        :checkbox,留空(=還沒挑);勾它 → GAS 即時搬待拍。
  * - 加入日期  :ISO YYYY-MM-DD(新鮮度;voc `normalize_date` 也吃 ISO)。
+ * - 夯度      :分享者一鍵下標(收錄時留空,點 inline 按鈕後由 callback 寫入):夯爆了/NPC/拉完了。
  *
  * id 欄已砍(2026-06-24):池內 id 是純流水號、非去重 key(連結才是)、挑走搬待拍另發 T 號不沿用 → 廢標籤。
  * NOTE / VIDEO_ID / SENDER 等原始細節參考池不存(voc 設計如此):梗在搬進待拍後填「待拍.備註」,
@@ -87,7 +88,14 @@ export interface RefRow {
   連結: string;
   挑: string;
   加入日期: string; // ISO YYYY-MM-DD (Asia/Taipei)
+  夯度: string; // 收錄時留空;分享者點 inline 按鈕後由 callback 寫入(夯爆了/NPC/拉完了)
 }
 
-/** 「參考池」表頭順序(SSOT),與 voc schema.REFS.columns 對齊。 */
-export const POOL_COLUMNS: (keyof RefRow)[] = ["平台", "連結", "挑", "加入日期"];
+/** 「參考池」表頭順序(SSOT),與 voc schema.REFS.columns 對齊。夯度 一律在最後(voc init-sheet 不錯位)。 */
+export const POOL_COLUMNS: (keyof RefRow)[] = ["平台", "連結", "挑", "加入日期", "夯度"];
+
+/**
+ * 夯度可選值(與 voc `schema.HOT_VALUES` 鏡像;順序 = inline 按鈕順序與 callback 索引)。
+ * 分享者一鍵直覺判斷(非 AI):夯爆了=爆款優先、NPC=路人普通、拉完了=做爛了跳過。
+ */
+export const HOT_VALUES = ["夯爆了", "NPC", "拉完了"] as const;

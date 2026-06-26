@@ -21,11 +21,13 @@ describe("runCollect", () => {
     const all = await storage.readAll();
     expect(all).toHaveLength(1);
     const row = all[0]!;
-    expect(Object.keys(row)).toEqual(["平台", "連結", "挑", "加入日期"]);
+    expect(Object.keys(row)).toEqual(["平台", "連結", "挑", "加入日期", "夯度"]);
     expect(row.平台).toBe("tiktok"); // 小寫碼
     expect(row.連結).toBe("https://www.tiktok.com/@u/video/7234567890");
     expect(row.挑).toBe(""); // 留空 = 還沒挑
     expect(row.加入日期).toBe(todayIsoTaipei()); // ISO YYYY-MM-DD
+    expect(row.夯度).toBe(""); // 收錄時留空,等分享者點按鈕
+    expect(r.hotKey).toBeTruthy(); // 帶 key 讓 router 掛夯度按鈕
   });
 
   it("同連結重複 → 不寫第二筆", async () => {
@@ -66,6 +68,7 @@ describe("runCollect", () => {
       連結: "https://youtu.be/dQw4w9WgXcQ",
       挑: "",
       加入日期: "2025-01-01",
+      夯度: "",
     };
     const storage = new MemoryStorage([seed]);
     const r = await runCollect(
