@@ -17,13 +17,13 @@ import { logger } from "../utils/logger.js";
 // 收錄成功後在回覆下掛一排「夯爆了/NPC/拉完了」,分享者一鍵下標。
 // callback_data = h:<idx>:<dedupKey>;Telegram 上限 64 bytes,放不下(罕見長路徑
 // fallback key)就不掛按鈕(那種片直接在 Sheet 手標即可)。
-function hotCbData(idx: number, key: string): string {
+export function hotCbData(idx: number, key: string): string {
   return `h:${idx}:${key}`;
 }
-function hotKeyFits(key: string): boolean {
+export function hotKeyFits(key: string): boolean {
   return Buffer.byteLength(hotCbData(HOT_VALUES.length - 1, key), "utf8") <= 64;
 }
-function hotKeyboard(key: string, chosen = -1) {
+export function hotKeyboard(key: string, chosen = -1) {
   const row = HOT_VALUES.map((label, i) =>
     Markup.button.callback(i === chosen ? `✅ ${label}` : label, hotCbData(i, key)),
   );
