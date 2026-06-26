@@ -1,87 +1,29 @@
 /**
- * 共用型別 + Google Sheet「參考池」schema(SSOT)。
- * 改欄位只改這裡,storage / messages / handlers 都引用這份。
- *
- * 2026-06-22:bot 改成「直接寫 voc 的『參考池』分頁」(廢「暫存區」中間層)。
- * voc 端已砍掉 sync-pool(暫存區→參考池 每日複製),bot 與 voc 用同一張表、同一個 SA,
- * 所以 bot 直寫參考池就是最終狀態,不再有複製儀式。參考池 4 欄欄名/順序必須與
- * voc `schema.REFS` 完全對上(契約由 tests/contract.test.ts 守;2026-06-24 砍 id)。
+ * 共用型別改由 @pei760730/collector-core 提供(PR-6,re-export 保持 import 路徑不變)。
+ * RefRow / POOL_COLUMNS / HOT_VALUES 是 TeaBus-VOC「參考池」schema —— collector 專屬寫入契約,留本地。
+ * (clip-collector 比個人版多「夯度」欄:分享者 inline 一鍵下標。)
  */
-
-/** 支援的平台代碼(內部判定用的顯示名;寫進 Sheet 的是 PLATFORM_CODE 的小寫碼)。 */
-export type Platform =
-  | "TikTok"
-  | "YouTube"
-  | "Facebook"
-  | "Instagram"
-  | "Threads"
-  | "X"
-  | "抖音"
-  | "小紅書"
-  /** 認不得的網域(fallback / 解析失敗)。不再誤猜 Instagram。 */
-  | "Unknown";
-
-export type DetectionMethod = "domain_match" | "fallback" | "error";
+export type {
+  Platform,
+  DetectionMethod,
+  ParsedMessage,
+  CleanedUrl,
+  PlatformInfo,
+  VideoIdInfo,
+} from "@pei760730/collector-core";
+export { PLATFORM_CODE } from "@pei760730/collector-core";
 
 /**
- * 平台顯示名 → voc 參考池統一用的小寫代碼。
- * voc(及全系統下游)用小寫碼篩選/統計;bot 是參考池的唯一寫入者,寫入前一律轉碼。
- * 8 個正式平台對到 voc 認得的碼;Unknown 落 "unknown"(8 碼之外的唯一例外)。
- */
-export const PLATFORM_CODE: Record<Platform, string> = {
-  TikTok: "tiktok",
-  YouTube: "youtube",
-  Facebook: "facebook",
-  Instagram: "instagram",
-  Threads: "threads",
-  X: "x",
-  抖音: "douyin",
-  小紅書: "xiaohongshu",
-  Unknown: "unknown",
-};
-
-/** Parse 階段輸出。 */
-export interface ParsedMessage {
-  /** 原始(未清理)網址,給 cleanUrl 當輸入。 */
-  rawUrl: string;
-  /** 訊息文字移除網址後的備註(供回覆顯示;參考池無備註欄,梗在搬進待拍後填「待拍.備註」)。 */
-  note: string;
-}
-
-/** Clean URL 階段輸出。 */
-export interface CleanedUrl {
-  cleanUrl: string;
-  /** 是否為已知短網址服務(bit.ly 等)。 */
-  isShortUrl: boolean;
-}
-
-/** Detect Platform 階段輸出。 */
-export interface PlatformInfo {
-  platform: Platform;
-  method: DetectionMethod;
-}
-
-/** Extract Video ID 階段輸出。 */
-export interface VideoIdInfo {
-  /** 帶平台前綴的唯一 ID,如 tiktok_7234...;抓不到為空字串(退連結路徑去重)。 */
-  videoId: string;
-  /** 抓不到 ID(平台不支援或格式異常)。 */
-  unsupported: boolean;
-}
-
-/**
- * 「參考池」一列資料 —— 欄位即 voc `schema.REFS`,鍵名/順序就是 Sheet 表頭,不要改。
+ * 「參考池」一列資料 —— 欄位即 TeaBus-VOC `schema.REFS`,鍵名/順序就是 Sheet 表頭,不要改。
  *
- * voc 參考池 5 欄(2026-06-26 契約;砍掉 id,加 夯度):
+ * 參考池 5 欄(2026-06-26 契約;砍掉 id,加 夯度):
  * - 平台      :小寫碼(PLATFORM_CODE)。
  * - 連結      :乾淨連結 —— 「打開」+ 去重的唯一 key(= 參考池的身份)。
  * - 挑        :checkbox,留空(=還沒挑);勾它 → GAS 即時搬待拍。
  * - 加入日期  :ISO YYYY-MM-DD(新鮮度;voc `normalize_date` 也吃 ISO)。
  * - 夯度      :分享者一鍵下標(收錄時留空,點 inline 按鈕後由 callback 寫入):夯爆了/NPC/拉完了。
  *
- * id 欄已砍(2026-06-24):池內 id 是純流水號、非去重 key(連結才是)、挑走搬待拍另發 T 號不沿用 → 廢標籤。
- * NOTE / VIDEO_ID / SENDER 等原始細節參考池不存(voc 設計如此):梗在搬進待拍後填「待拍.備註」,
- * 去重 key 寫入前由連結即時推導(見 pipeline `dedupKey`),不需存欄。
+ * 去重 key 由連結即時推導(見 pipeline `dedupKey` = core groupKey),不存欄。
  */
 export interface RefRow {
   平台: string;
@@ -91,11 +33,11 @@ export interface RefRow {
   夯度: string; // 收錄時留空;分享者點 inline 按鈕後由 callback 寫入(夯爆了/NPC/拉完了)
 }
 
-/** 「參考池」表頭順序(SSOT),與 voc schema.REFS.columns 對齊。夯度 一律在最後(voc init-sheet 不錯位)。 */
+/** 「參考池」表頭順序(SSOT),與 TeaBus-VOC schema.REFS.columns 對齊。夯度 一律在最後(voc init-sheet 不錯位)。 */
 export const POOL_COLUMNS: (keyof RefRow)[] = ["平台", "連結", "挑", "加入日期", "夯度"];
 
 /**
- * 夯度可選值(與 voc `schema.HOT_VALUES` 鏡像;順序 = inline 按鈕順序與 callback 索引)。
+ * 夯度可選值(與 TeaBus-VOC `schema.HOT_VALUES` 鏡像;順序 = inline 按鈕順序與 callback 索引)。
  * 分享者一鍵直覺判斷(非 AI):夯爆了=爆款優先、NPC=路人普通、拉完了=做爛了跳過。
  */
 export const HOT_VALUES = ["夯爆了", "NPC", "拉完了"] as const;
