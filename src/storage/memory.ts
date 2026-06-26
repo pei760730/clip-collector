@@ -3,6 +3,7 @@
  */
 import type { Storage, DuplicateHit, StatsSummary } from "./Storage.js";
 import type { RefRow } from "../types.js";
+import { dedupKey } from "../pipeline/index.js";
 import { computeStats } from "./computeStats.js";
 
 export class MemoryStorage implements Storage {
@@ -18,6 +19,13 @@ export class MemoryStorage implements Storage {
 
   async append(row: RefRow): Promise<void> {
     this.rows.push(row);
+  }
+
+  async setHot(key: string, hot: string): Promise<boolean> {
+    const target = this.rows.find((r) => dedupKey(r.連結) === key);
+    if (!target) return false;
+    target.夯度 = hot;
+    return true;
   }
 
   async readAll(): Promise<RefRow[]> {

@@ -18,7 +18,7 @@ Codex 是這個 repo 的**工程管線 agent**:在 branch 上做可審查的 cod
 
 **預設不碰(Claude Code / Owner 的領域):**
 - **Live bot 操作 / Sheet 實際寫入**(真的啟動 bot 收訊息、`STORAGE=sheets` 跑真表)
-- **與 VOC 的對接契約**(`CLAUDE.md` §6 的參考池欄位:bot 直寫 VOC `schema.REFS` 5 欄 `id/平台/連結/挑/加入日期`)—— 改欄名要兩 repo 一起,屬跨 repo 協調
+- **與 VOC 的對接契約**(`CLAUDE.md` §6 的參考池欄位:bot 直寫 VOC `schema.REFS` 5 欄 `平台/連結/挑/加入日期/夯度`;id 已砍、夯度於 2026-06-26 加在最後)—— 改欄名要兩 repo 一起,屬跨 repo 協調
 - **schema 設計判斷**(`POOL_COLUMNS` 加/砍欄、平台規則、去重策略的大方向)
 - `service_account.json`、`.env`(機密)
 

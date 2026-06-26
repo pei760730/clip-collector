@@ -60,6 +60,7 @@ export function assembleDraft(parsed: ParsedMessage, now: () => number = Date.no
     連結: cleaned.cleanUrl,
     挑: "", // 留空 = 還沒挑
     加入日期: todayIsoTaipei(now()),
+    夯度: "", // 留空;分享者點 inline 按鈕後由 callback setHot 寫入
   };
 
   return {
