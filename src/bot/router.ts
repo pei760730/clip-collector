@@ -132,7 +132,7 @@ export function createBot(config: Config, storage: Storage, hooks?: BotHooks): T
       const idx = Number(ctx.match[1]);
       const key = ctx.match[2];
       const value = HOT_VALUES[idx];
-      if (value === undefined) {
+      if (key === undefined || value === undefined) {
         await ctx.answerCbQuery("未知選項").catch(() => {});
         return;
       }
