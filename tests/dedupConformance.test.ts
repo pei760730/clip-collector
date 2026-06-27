@@ -9,6 +9,7 @@
  * 對手檔 = canonical `contracts/voc/dedup_vectors.json`(來源 voc,tbvoc 2026-06-27 已對齊共用)。
  * Python 側由 voc / tbvoc 的 test_dedup_contract 守同一份;格式(`:` vs `_`)允許不同,只驗分群等價。
  */
+import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
@@ -21,9 +22,12 @@ interface DedupVectors {
   edge_cases: { name: string; why: string; url: string; expect: "id" | "path" }[];
 }
 
-const vectors: DedupVectors = JSON.parse(
-  readFileSync(new URL("../contracts/voc/dedup_vectors.json", import.meta.url), "utf8"),
+// canonical 去重向量 = @pei760730/collector-core 隨包發布的 contracts/voc/dedup_vectors.json。
+// 不再 vendor 進本 repo;改去重規則 → 先改 core canonical → bump core tag → 兩邊測試先紅逼同步。
+const _vectorsPath = createRequire(import.meta.url).resolve(
+  "@pei760730/collector-core/contracts/voc/dedup_vectors.json",
 );
+const vectors: DedupVectors = JSON.parse(readFileSync(_vectorsPath, "utf8"));
 
 // path-fallback key 是砍 query 後的乾淨連結(以 http 開頭);id key 是平台前綴_id。
 const isPathKey = (k: string): boolean => k.startsWith("http");

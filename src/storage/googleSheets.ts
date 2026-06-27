@@ -12,12 +12,12 @@
  * 那才是真的會錯欄毀 voc 池,寧可停下等人對齊(維持 CLAUDE.md 安全網本意)。
  */
 import { google, type sheets_v4 } from "googleapis";
+import { withRetry } from "@pei760730/collector-core";
 import type { Storage, DuplicateHit, StatsSummary } from "./Storage.js";
 import type { RefRow } from "../types.js";
 import { POOL_COLUMNS } from "../types.js";
 import { dedupKey } from "../pipeline/index.js";
 import { computeStats } from "./computeStats.js";
-import { logger } from "../utils/logger.js";
 
 const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
 
@@ -97,59 +97,6 @@ export function readNamedRow(
     obj[col] = idx === undefined ? "" : String(cells[idx] ?? "");
   }
   return obj;
-}
-
-/**
- * 429 / 5xx 退避重試(沿用 th-ops 策略)。其餘錯誤直接丟。
- * `alreadyDone`:重試前的冪等護欄 —— 非冪等寫入(append)可能「寫成功但回應遺失」
- * 觸發重試,導致雙寫;重試前先問一次「上次其實成功了嗎?」是就視為完成、不再重打。
- */
-async function withRetry<T>(
-  label: string,
-  fn: () => Promise<T>,
-  opts: { tries?: number; alreadyDone?: () => Promise<boolean> } = {},
-): Promise<T> {
-  const tries = opts.tries ?? 4;
-  let lastErr: unknown;
-  for (let attempt = 1; attempt <= tries; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastErr = err;
-      const e = err as {
-        code?: number | string;
-        response?: { status?: number };
-        message?: string;
-      };
-      const code = e?.code ?? e?.response?.status;
-      const httpRetryable =
-        code === 429 || (typeof code === "number" && code >= 500 && code < 600);
-      // 取 token / 連 googleapis 時的暫時性網路錯誤(WSL2 MTU 丟大封包 → "Premature close",
-      // 或連線被重置)沒有 HTTP code,但同樣該重試 —— 這類佔約 20% cron 偶發紅燈。
-      // 用 node 的 errno code 與訊息雙重比對,別把真正的錯誤(如表頭不符)當暫時性吞掉。
-      const transientCodes = new Set(["ECONNRESET", "ETIMEDOUT", "ECONNREFUSED", "EPIPE", "EAI_AGAIN"]);
-      const msg = typeof e?.message === "string" ? e.message : "";
-      const networkRetryable =
-        (typeof code === "string" && transientCodes.has(code)) ||
-        /premature close|socket hang up|network|ECONNRESET|ETIMEDOUT/i.test(msg);
-      const retryable = httpRetryable || networkRetryable;
-      if (!retryable || attempt === tries) throw err;
-      if (opts.alreadyDone) {
-        try {
-          if (await opts.alreadyDone()) {
-            logger.warn(`${label} 第 ${attempt} 次回應遺失但寫入已存在,視為成功(不重打)`);
-            return undefined as T;
-          }
-        } catch {
-          // 護欄查詢本身失敗就照常重試,不放大故障。
-        }
-      }
-      const backoff = 500 * 2 ** (attempt - 1); // 0.5s,1s,2s
-      logger.warn(`${label} 第 ${attempt}/${tries} 次失敗(code=${code}),${backoff}ms 後重試`);
-      await new Promise((r) => setTimeout(r, backoff));
-    }
-  }
-  throw lastErr;
 }
 
 export class GoogleSheetsStorage implements Storage {
