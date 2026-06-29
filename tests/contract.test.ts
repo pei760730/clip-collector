@@ -21,13 +21,28 @@ import { detectPlatform } from "../src/pipeline/detectPlatform.js";
 
 // TeaBus-VOC 發布的 collector 契約(欄名 / 平台碼)。schema.json 只認需要的欄位。
 interface EngineSchema {
+  schemaVersion: string;
   columns: string[];
   platformCodes: string[];
 }
 
+// vendored schema 過期偵測的最低門檻:上游 tbvoc bump 了 schemaVersion 卻忘了重新 vendor 時,
+// 這個常數會比 vendored copy 舊 → 斷言先紅。提醒:更新 contracts/teabus/schema.json 後,
+// 若上游真的 bump 了版本,也要把這個常數一起調上去(否則新版 vendor 進來這條斷言反而恆過、失去守門)。
+// 注意:這只擋「版本號落後」,擋不住「同版本號內欄位/平台碼悄悄漂移」——
+// 那仍靠手動 cp + contracts/teabus/README.md 的重新 vendor 流程(本檔上半的欄名/平台碼斷言守同版內容)。
+const MIN_SCHEMA_VERSION = "1";
+
 const schema: EngineSchema = JSON.parse(
   readFileSync(new URL("../contracts/teabus/schema.json", import.meta.url), "utf8"),
 ) as EngineSchema;
+
+describe("TeaBus-VOC 契約:vendored schema 版本不落後", () => {
+  it(`vendored schemaVersion(${schema.schemaVersion})>= 預期最低版本(${MIN_SCHEMA_VERSION})`, () => {
+    // 版本碼是純數字字串(目前 "1"),用數值比較避免 "10" < "2" 的字典序坑。
+    expect(Number(schema.schemaVersion)).toBeGreaterThanOrEqual(Number(MIN_SCHEMA_VERSION));
+  });
+});
 
 describe("TeaBus-VOC 契約:參考池欄名/順序", () => {
   it("ClipBot 寫的參考池欄名/順序 == tbvoc schema.json columns", () => {

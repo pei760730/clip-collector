@@ -210,6 +210,25 @@ export class GoogleSheetsStorage implements Storage {
   async append(row: RefRow): Promise<void> {
     const layout = await this.layout();
     const key = dedupKey(row.連結);
+    // 冪等護欄的「既有 key 集合」在單次 append 的重試窗內只讀一次後快取:
+    // 連環 429 / 暫時性網路錯會逼出多次重試,舊版每次重試都做一次全表讀(readRows)→ 故障時讀放大成 N 倍
+    // (withRetry tries=4,單筆 append 最多觸發 3 次全表讀)。
+    // 這裡刻意用「本次 append 專屬」的新鮮讀(非實例層的 dedupCache):護欄要偵測的正是「上次寫成功
+    // 但回應遺失」留下的列,實例 dedupCache 在本次 append 之前就建好、不含那列,會永遠回 false 而失效;
+    // 故每次 append 重試窗各做一次新鮮 readRows,只在窗內快取。
+    // 護欄查詢「成功」就快取本次結果重用;查詢「本身失敗」不快取(throw 出去,由 withRetry 吞掉照常重試),
+    // 維持「護欄掛了也不放棄寫入」的降級。參考池無時間窗、重試窗短,期間集合視為不變是安全的。
+    let keySetCache: Promise<Set<string>> | undefined;
+    const existingKeys = (): Promise<Set<string>> => {
+      const pending = (keySetCache ??= this.readRows()
+        .then((hits) => new Set(hits.map((h) => dedupKey(h.row.連結))))
+        .catch((err) => {
+          // 不快取失敗:清掉 pending,下次重試重新查(降級保留)。
+          if (keySetCache === pending) keySetCache = undefined;
+          throw err;
+        }));
+      return pending;
+    };
     await withRetry(
       "append",
       () =>
@@ -223,9 +242,8 @@ export class GoogleSheetsStorage implements Storage {
       {
         // 冪等護欄:呼叫端(collect)已先去重,故重試前若這連結 key 已在表上,
         // 必是上一次「寫成功但回應遺失」留下的,視為完成,避免重試雙寫。
-        // (僅重試路徑才觸發此全表查;正常路徑不打。)
-        alreadyDone: async () =>
-          !!key && (await this.readRows()).some((h) => dedupKey(h.row.連結) === key),
+        // (僅重試路徑才觸發此查;正常路徑不打。重試窗內 readRows 至多一次,見上方 existingKeys。)
+        alreadyDone: async () => !!key && (await existingKeys()).has(key),
       },
     );
     // 寫入成功 → 併入去重快取,讓同輪稍後的重複連結不必重讀全表也擋得到。
