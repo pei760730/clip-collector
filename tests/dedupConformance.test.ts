@@ -1,7 +1,7 @@
 /**
  * 跨語言去重契約 conformance(TS / clip 側)。
  *
- * clip-collector 寫 TeaBus-VOC(tbvoc)的「參考池」,去重 `dedupKey` = @pei760730/collector-core
+ * clip-collector 寫 VOC(tbvoc)的「參考池」,去重 `dedupKey` = @pei760730/collector-core
  * 的 `groupKey`(經 dep pin)。本檔釘住「core groupKey 對 canonical 向量分群等價」——
  * bump core 版本時若 core 與 voc/tbvoc 分叉(same_group 不收斂 / distinct 撞 / edge id-path 跑掉),
  * 這裡先紅,不會等到線上靜默漏去重才發現。
