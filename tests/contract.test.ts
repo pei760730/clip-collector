@@ -1,12 +1,12 @@
 /**
- * 與 TeaBus-VOC 對接契約的 drift-catcher(跨 repo)。
+ * 與上游 VOC 引擎對接契約的 drift-catcher(跨 repo)。
  *
  * 這份測試把「散文契約」變成 CI 守的不變式:任何一方改欄名 / 改平台碼,這裡先紅,
  * 不會等到線上靜默漏資料才發現。
  *
- * 對手檔 = TeaBus-VOC `contracts/schema.json`(由 tbvoc `src/tbvoc/schema.py` +
- * `normalize.py` codegen),vendored 到 `contracts/teabus/`(TeaBus-VOC 是 private repo、
- * clip-collector public 無法跨 repo 抓;TeaBus-VOC 契約更新時重新 vendor —— 見
+ * 對手檔 = 上游 VOC 引擎 `contracts/schema.json`(由 tbvoc `src/tbvoc/schema.py` +
+ * `normalize.py` codegen),vendored 到 `contracts/teabus/`(上游是 private repo、
+ * clip-collector public 無法跨 repo 抓;上游契約更新時重新 vendor —— 見
  * contracts/teabus/README.md)。
  *
  * 從前這裡手抄 VOC_REFS_COLUMNS / VOC_PLATFORM_CODES 鏡像常數,改 tbvoc 忘了同步就默默壞;
@@ -19,7 +19,7 @@ import { describe, expect, it } from "vitest";
 import { POOL_COLUMNS, PLATFORM_CODE, type Platform } from "../src/types.js";
 import { detectPlatform } from "../src/pipeline/detectPlatform.js";
 
-// TeaBus-VOC 發布的 collector 契約(欄名 / 平台碼)。schema.json 只認需要的欄位。
+// 上游 VOC 引擎發布的 collector 契約(欄名 / 平台碼)。schema.json 只認需要的欄位。
 interface EngineSchema {
   schemaVersion: string;
   columns: string[];
@@ -37,14 +37,14 @@ const schema: EngineSchema = JSON.parse(
   readFileSync(new URL("../contracts/teabus/schema.json", import.meta.url), "utf8"),
 ) as EngineSchema;
 
-describe("TeaBus-VOC 契約:vendored schema 版本不落後", () => {
+describe("上游 VOC 引擎契約:vendored schema 版本不落後", () => {
   it(`vendored schemaVersion(${schema.schemaVersion})>= 預期最低版本(${MIN_SCHEMA_VERSION})`, () => {
     // 版本碼是純數字字串(目前 "1"),用數值比較避免 "10" < "2" 的字典序坑。
     expect(Number(schema.schemaVersion)).toBeGreaterThanOrEqual(Number(MIN_SCHEMA_VERSION));
   });
 });
 
-describe("TeaBus-VOC 契約:參考池欄名/順序", () => {
+describe("上游 VOC 引擎契約:參考池欄名/順序", () => {
   it("ClipBot 寫的參考池欄名/順序 == tbvoc schema.json columns", () => {
     expect(POOL_COLUMNS).toEqual(schema.columns);
   });
@@ -55,7 +55,7 @@ describe("TeaBus-VOC 契約:參考池欄名/順序", () => {
   });
 });
 
-describe("TeaBus-VOC 契約:bot 平台碼 ⊆ tbvoc 認得的小寫碼", () => {
+describe("上游 VOC 引擎契約:bot 平台碼 ⊆ tbvoc 認得的小寫碼", () => {
   it("每個正式平台(非 Unknown)的碼都 ⊆ schema.platformCodes", () => {
     const allowed = new Set(schema.platformCodes);
     for (const p of Object.keys(PLATFORM_CODE) as Platform[]) {
