@@ -8,6 +8,9 @@ on:
     - cron: "*/5 * * * *" # 每 5 分鐘;收訊息延遲約 5–15 分(GitHub 排程會拖,非秒到)
   workflow_dispatch: {} # 手動補跑
 
+permissions:
+  contents: read
+
 # 同時只跑一個,避免兩個 job 並行領 getUpdates 互搶(會漏 ack)。
 concurrency:
   group: collect
@@ -25,7 +28,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: drain
-        # 留存輸出供失敗通知擷取真因(default shell 已含 -o pipefail,npm 退出碼會正確傳遞)。
+        # 留存輸出供失敗通知擷取真因。
+        # 顯式 shell: bash 才有 -o pipefail(GitHub 預設是 bash -e {0},不含 pipefail),
+        # 否則 npm 崩潰的退出碼會被 tee 吃掉 → 假綠 → 下面 if: failure() 告警永不觸發。
+        shell: bash
         run: npm run drain 2>&1 | tee drain.log
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -47,7 +53,7 @@ jobs:
         if: failure()
         id: failmsg
         run: |
-          ERR=$(grep -iE 'ERROR|Error:|錯誤|失敗' drain.log 2>/dev/null | tail -n 2 | tr '\n' ' ' | python3 -c 'import sys;sys.stdout.write(sys.stdin.read()[:280])')
+          ERR=$(grep -iE 'ERROR|Error:|錯誤|失敗' drain.log 2>/dev/null | tail -n 2 | tr '\n' ' ' | python3 -c 'import sys;sys.stdout.write(sys.stdin.buffer.read().decode("utf-8","replace")[:280])')
           [ -z "$ERR" ] && ERR="(未擷取到錯誤,請看 log)"
           echo "text=🔴 clip-collector collect 失敗:${ERR} — ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
       - name: Notify Kai on failure (kai-notify)
