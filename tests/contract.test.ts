@@ -17,7 +17,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { POOL_COLUMNS, PLATFORM_CODE, type Platform } from "../src/types.js";
-import { detectPlatform } from "../src/pipeline/detectPlatform.js";
+import { detectPlatform } from "@pei760730/collector-core";
 
 // 上游 VOC 引擎發布的 collector 契約(欄名 / 平台碼)。schema.json 只認需要的欄位。
 interface EngineSchema {
