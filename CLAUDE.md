@@ -9,7 +9,7 @@
 1. **機密永不進 git**:`TELEGRAM_BOT_TOKEN`、`service_account.json`、`.env`。有人提議 commit 立刻拒絕(`.gitignore` 已擋)。
 2. **未經明確同意不 commit / push / 開 PR**。在 branch 做完、跑 `npm test` + `npm run typecheck`、先報告,等 yes。
 3. **只改被要求的部分**,不順手改旁邊的 code/欄位。
-4. **修 bug 前先想**:能不能用 schema/設定/純函式擋掉?n8n 的 regex 與邏輯要 1:1 保留,別憑印象重寫跑掉行為。
+4. **修 bug 前先想**:能不能用 schema/設定/純函式擋掉?抽取/清理/分群規則的 SSOT 在 `@pei760730/collector-core`——要改去 core 改(先過 core 的 tests + dedupConformance),別在本 repo 憑印象重寫跑掉行為。(舊「n8n regex 1:1」紅線已退役 2026-07-03:pipeline 已兩輪對齊 core canonical。)
 5. **不在 Sheet 裡的事實不能編造**;寫入後反向驗證(讀回確認),CLI 自報成功不算數。
 
 ## 第二層:資料地圖
@@ -18,10 +18,7 @@
 |---|---|
 | 「參考池」欄位 / schema(SSOT) | `src/types.ts`:`RefRow` / `POOL_COLUMNS`(= VOC `schema.REFS` 5 欄;id 已於 2026-06-24 砍、夯度 於 2026-06-26 加在最後)+ `HOT_VALUES` + `PLATFORM_CODE`(顯示名→小寫碼) |
 | 去重 key 演算法(連結→key) | `src/pipeline/index.ts`:`dedupKey`(平台:影片id 優先,抽不到退連結路徑;對齊 VOC `cli._dedup_key`,原 `sync._dedup_key`、sync.py 砍除後邏輯搬到 cli) |
-| 抽網址 + 備註 | `src/pipeline/parse.ts` |
-| 清網址(追蹤參數/行動版/短網址) | `src/pipeline/cleanUrl.ts` |
-| 判斷平台(domain 優先序) | `src/pipeline/detectPlatform.ts` |
-| 抽 video ID(各平台 regex) | `src/pipeline/extractVideoId.ts` |
+| 抽網址/清網址/判平台/抽 video ID | `@pei760730/collector-core`(SSOT;薄殼已於 2026-07-03 砍,直接 import core) |
 | pipeline 組合(parse→組草稿) | `src/pipeline/index.ts` |
 | 去重 / 寫入 / 統計介面 | `src/storage/Storage.ts` |
 | Google Sheets 實作 | `src/storage/googleSheets.ts` |
@@ -48,7 +45,7 @@
 
 - 使用者 **Pei**([pei760730](https://github.com/pei760730)),回覆繁體中文、短句直接。
 - 技術棧已定案:Node.js + TypeScript、telegraf、googleapis、dayjs、vitest。儲存 Google Sheets。
-- **部署:GitHub Actions cron drain($0,預設)** —— `.github/workflows/collect.yml` 設 `*/5` 跑 `npm run drain`(`src/drain.ts`:`getUpdates` 撈乾→`handleUpdate`→ack→結束),但 GitHub 對 public repo 高頻排程大幅節流,**實際約每 2–3h 觸發一次**。Telegram 留更新 ~24h,間隔遠 < 24h 不漏;每次 run 撈乾全部 pending,漏跑自癒。**不要在本機 Docker/WSL2 跑常駐**:連 googleapis 帶 JWT 大封包會 `Premature close`(WSL2 MTU 丟大封包)。要「秒回」才用常駐 long polling(`src/index.ts`,`BOT_MODE=polling`),且部署到雲端 VM 而非本機 Docker。webhook 模式需 `WEBHOOK_DOMAIN`。
+- **部署:GitHub Actions cron drain($0,預設)** —— `.github/workflows/collect.yml` 設 `*/5` 跑 `npm run drain`(`src/drain.ts`:`getUpdates` 撈乾→`handleUpdate`→ack→結束),但 GitHub 對 public repo 高頻排程大幅節流,**實際約每 2–3h 觸發一次**。Telegram 留更新 ~24h,間隔遠 < 24h 不漏;每次 run 撈乾全部 pending,漏跑自癒。**不要在本機 Docker/WSL2 跑常駐**:連 googleapis 帶 JWT 大封包會 `Premature close`(WSL2 MTU 丟大封包)。Docker/webhook 部署線已於 2026-07-03 解散(生產走 cron drain 數月、常駐線從未上場);`npm run dev` = 本機 long polling,僅開發用。
 - 開發指令:`npm run dev`(tsx watch)、`npm test`、`npm run typecheck`、`npm run build`。
 
 ## 第五層:待確認(邊做邊修)
