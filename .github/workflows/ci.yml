@@ -22,6 +22,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # 守門:宣稱版本 == 實裝版本(lockfile 落後 package.json spec 時必紅,防 PR #29 類靜默漂移)
+      - run: node scripts/check-dep-pin.mjs
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
