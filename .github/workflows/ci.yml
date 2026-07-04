@@ -22,6 +22,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # 守門:宣稱版本 == 實裝版本(lockfile 落後 package.json spec 時必紅,防 PR #29 類靜默漂移)
+      # 注意:core 的 exports 沒開放 ./package.json 子路徑,必須用檔案路徑直讀。
+      # 三姊妹 repo(clip-collector / short-video-bot / feed-collector)共用同一段。
+      - run: |
+          node -e "
+          const spec=(require('./package.json').dependencies||{})['@pei760730/collector-core']||'';
+          const m=spec.match(/#v(.+)$/);
+          if(!m){console.log('skip: not a git-tag dep');process.exit(0);}
+          const inst=require('./node_modules/@pei760730/collector-core/package.json').version;
+          if(inst!==m[1]){console.error('declared v'+m[1]+' !== installed '+inst);process.exit(1);}
+          console.log('collector-core ok: '+inst);
+          "
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

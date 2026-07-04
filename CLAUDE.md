@@ -40,6 +40,11 @@
 - **storage 只認 `Storage` 介面**:換來源新增實作即可,handlers 不動。
 - **最小權限**:Google 只用 `spreadsheets` scope。
 - **fail fast**:缺必要 env 啟動就丟錯,不帶半套設定跑。
+- **git-tag 依賴 bump 必驗「解析結果」,改 spec 字串不算升級**:bump `github:...#vX.Y.Z` 後必跑 `npm install` 重解析(或 surgical 編輯 lock 的 core 條目),PR 裡確認 package-lock.json 的 resolved sha == `gh api repos/<owner>/<repo>/commits/vX.Y.Z` 的 sha。CI/生產 `npm ci` 只認 lockfile resolved,spec 與 lockfile 漂移**不會報錯**、測試照樣全綠(測的就是舊 code)。
+  - 觸發條件:任何 package.json 內 git-tag 依賴的版本變更。
+  - 理由:聲明升級 ≠ 部署升級;綠燈對著舊 code 亮。
+  - 證據:PR #29(commit 8026229)只改兩處 spec 字串,resolved 仍 95429dc(=v0.2.1),dist/utils/retry.js 無 clamp;short-video-bot、feed-collector 同日同病。修復時 core 已出 v0.2.3,直升 v0.2.3(PR #31)。
+  - 失效/複審條件:CI 守門(ci.yml 的「宣稱==實裝」步驟,PR #31 已合入)長期有效後,此條可降級為該步驟的註解;或改走 npm registry 版本依賴時複審。
 
 ## 第四層:環境
 
