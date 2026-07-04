@@ -17,9 +17,9 @@ cp <上游 repo>/contracts/schema.json contracts/teabus/schema.json
 
 ## dedup 契約另走 collector-core
 
-去重分群契約(`dedup_vectors.json`)**不在這裡 vendor** —— 由 `@pei760730/collector-core` 隨包發布,
-`tests/dedupConformance.test.ts` 直接讀 `node_modules/@pei760730/collector-core/contracts/voc/dedup_vectors.json`。
-改去重規則 → 先改 core canonical → bump core tag。
+去重分群契約(`dedup_vectors.json`)**不在這裡 vendor** —— 由 `@pei760730/collector-core` 隨包發布。
+守門在 core repo 端的 `tests/dedupConformance.test.ts`;clip 端的鏡像測試已於 PR #30(2026-07-04)移除(自己測自己,無守門價值)。
+改去重規則 → 先改 core canonical(過 core 的 tests + dedupConformance)→ bump core tag。
 
 ## TODO — drift-guard 自動化
 
