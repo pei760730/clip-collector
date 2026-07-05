@@ -16,14 +16,15 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { POOL_COLUMNS, PLATFORM_CODE, type Platform } from "../src/types.js";
+import { POOL_COLUMNS, PLATFORM_CODE, HOT_VALUES, type Platform } from "../src/types.js";
 import { detectPlatform } from "@pei760730/collector-core";
 
-// 上游 VOC 引擎發布的 collector 契約(欄名 / 平台碼)。schema.json 只認需要的欄位。
+// 上游 VOC 引擎發布的 collector 契約(欄名 / 平台碼 / 夯度值)。schema.json 只認需要的欄位。
 interface EngineSchema {
   schemaVersion: string;
   columns: string[];
   platformCodes: string[];
+  hotValues: string[];
 }
 
 // vendored schema 過期偵測的最低門檻:上游 tbvoc bump 了 schemaVersion 卻忘了重新 vendor 時,
@@ -52,6 +53,13 @@ describe("上游 VOC 引擎契約:參考池欄名/順序", () => {
   it("夯度 必在最後一欄(init-sheet 只改表頭,插中間會錯位舊資料)", () => {
     expect(schema.columns[schema.columns.length - 1]).toBe("夯度");
     expect(POOL_COLUMNS[POOL_COLUMNS.length - 1]).toBe("夯度");
+  });
+});
+
+describe("上游 VOC 引擎契約:夯度值集合", () => {
+  it("ClipBot inline 按鈕的 HOT_VALUES == tbvoc schema.json hotValues(值+順序)", () => {
+    // 從前 HOT_VALUES 兩邊手抄鏡像、契約抓不到漂移;納入 schema.json 後改一邊忘同步 → CI 紅。
+    expect([...HOT_VALUES]).toEqual(schema.hotValues);
   });
 });
 

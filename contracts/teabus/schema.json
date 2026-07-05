@@ -20,6 +20,11 @@
     "threads",
     "douyin"
   ],
+  "hotValues": [
+    "夯爆了",
+    "NPC",
+    "拉完了"
+  ],
   "dedup": {
     "separator": ":",
     "namespaced": true,
