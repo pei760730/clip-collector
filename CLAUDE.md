@@ -40,7 +40,7 @@
 - **storage 只認 `Storage` 介面**:換來源新增實作即可,handlers 不動。
 - **最小權限**:Google 只用 `spreadsheets` scope。
 - **fail fast**:缺必要 env 啟動就丟錯,不帶半套設定跑。
-- **git-tag 依賴 bump**:改 spec 後必跑 `npm install` 重解析(或 surgical 編輯 lock 的 core 條目),PR 裡確認 lock 的 resolved sha == tag commit。「宣稱==實裝」由 CI 守門(`ci.yml` 守門步驟,lockfile 落後 spec 必紅;三姊妹 repo 共用同段)。始末:PR #29(漂移案例)→ PR #31(守門+真升,紅→綠驗證)。改走 npm registry 依賴時此條連守門一起複審。
+- **git-tag 依賴 bump**:改 spec 後必跑 `npm install` 重解析(或 surgical 編輯 lock 的 core 條目),PR 裡確認 lock 的 resolved sha == tag commit。「宣稱==實裝」由 CI 守門(`ci.yml` 守門步驟,lockfile 落後 spec 必紅;三姊妹 repo 共用同段)。始末:PR #29(漂移案例)→ PR #31(守門+真升,紅→綠驗證)。**發現新版→開單已自動化(2026-07-06)**:`core-bump.yml` 每日 cron 呼叫 core 的 `consumer-bump.yml`(reusable,SSOT 在 core)自動開 bump PR(surgical 編輯 + npm ci 反向驗證 + dispatch CI + kai-notify),人只需授權 merge;手動 bump 時才照本條操作。改走 npm registry 依賴時此條連守門一起複審。
 
 ## 第四層:環境
 
