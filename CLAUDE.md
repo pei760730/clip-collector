@@ -53,11 +53,11 @@
 
 - `/stats` 顯示哪些數字 —— 現為預設版,**讀「參考池」**(總筆數+各平台+本週/本月+最近5筆)。注意:已挑走的素材會搬離參考池,故統計反映「目前池中未挑」的素材,不含已挑/已拍。
 - `/move` 已退役(隨第二輪瘦身砍 STATUS 欄一起;`move.ts` 已刪)。`/pick` 也已退役(2026-06-23,見第六層):挑片統一走 Sheet 勾「挑」→ GAS 搬待拍。
-- 短網址展開(`EXPAND_SHORT_URLS`)預設關;要開再驗 redirect 行為。
+- 短網址展開已於生產開啟(collect.yml `EXPAND_SHORT_URLS="true"`,失敗 graceful fallback);本機開發預設仍關(config 預設 false)。
 
 ## 第六層:與 VOC 對接契約(改欄位前先讀!跨 repo)
 
-bot 是上游:**直接寫** Google 表「**短影音進度N**」(已配置並運作中;sheet id 由 GitHub secret `GOOGLE_SHEET_ID` 注入,= VOC 的 `VOC_SPREADSHEET_ID`)的「**參考池**」分頁。cron 每 5 分鐘成功寫入中。
+bot 是上游:**直接寫** Google 表「**短影音進度N**」(已配置並運作中;sheet id 由 GitHub secret `GOOGLE_SHEET_ID` 注入,= VOC 的 `VOC_SPREADSHEET_ID`)的「**參考池**」分頁。Actions cron drain 持續成功寫入中(設 `*/5`,實際被節流約 2–3h 一跑,見第四層)。
 2026-06-22 起廢「暫存區」中間層 —— VOC 已砍 `sync.py` / `sync-pool`(暫存區→參考池 每日複製是純儀式,第一性原理刪除)。bot 與 VOC 同一張表、同一把 SA,bot 直寫參考池就是最終狀態。
 
 - **同一張表**:bot `GOOGLE_SHEET_ID`(由 GitHub secret 注入,運作中)必須 = VOC `VOC_SPREADSHEET_ID`。憑證共用 VOC 的 service account(由 secret `GOOGLE_SERVICE_ACCOUNT_JSON` 注入)。
