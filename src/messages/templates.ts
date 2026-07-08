@@ -3,17 +3,8 @@
  * 改進#2:n8n 版用 MarkdownV2 但沒跳脫,含 . - ( ) 會發送失敗;
  * 純文字最穩,emoji 照常顯示,不必跳脫。
  */
-import { PLATFORM_CODE, type Platform, type RefRow } from "../types.js";
-import { PLATFORM_ICON } from "@pei760730/collector-core";
-
-/** 小寫平台碼 → emoji。row.平台 存的是碼(tiktok…),不是顯示名。 */
-const ICON_BY_CODE: Record<string, string> = Object.fromEntries(
-  (Object.keys(PLATFORM_CODE) as Platform[]).map((p) => [PLATFORM_CODE[p], PLATFORM_ICON[p]]),
-);
-
-function iconFor(code: string): string {
-  return ICON_BY_CODE[code] ?? "•";
-}
+import { type RefRow } from "../types.js";
+import { iconFor, SUPPORTED_PLATFORMS } from "../platformIcon.js";
 
 export function formatErrorMsg(): string {
   return [
@@ -22,7 +13,7 @@ export function formatErrorMsg(): string {
     "請貼「短影音連結 + 備註」,例如:",
     "https://www.tiktok.com/@user/video/1234567890 健身梗很好笑",
     "",
-    "支援:TikTok / YouTube / Facebook / Instagram / Threads / X / 抖音 / 小紅書",
+    `支援:${SUPPORTED_PLATFORMS.join(" / ")}`,
   ].join("\n");
 }
 
