@@ -44,16 +44,17 @@ function enumEnv<T extends string>(name: string, allowed: readonly T[], fallback
  * 逗號分隔的 chat/user id 白名單(來源授權)。非整數項直接丟錯(fail-fast,
  * 別讓打錯的 id 默默失效後還「以為有保護」)。空字串 → 空陣列(是否強制由 loadConfig 決定)。
  */
-function chatIdsEnv(name: string): number[] {
+export function chatIdsEnv(name: string): number[] {
   const v = (process.env[name] ?? "").trim();
   if (v === "") return [];
   return v.split(",").map((s) => {
     const t = s.trim();
-    const n = Number(t);
-    if (!Number.isInteger(n)) {
+    // 先驗字面純數字:Number("1e5"/"0x10"/"12.0") 都會過 Number.isInteger,
+    // 讓打錯的 id 默默變成錯的數字(白名單靜默失準)。用 /^-?\d+$/ 擋掉。
+    if (!/^-?\d+$/.test(t)) {
       throw new Error(`環境變數 ${name} 內含非整數 chat id:'${t}'(請用逗號分隔的純數字 id)`);
     }
-    return n;
+    return Number(t);
   });
 }
 
