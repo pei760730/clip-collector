@@ -10,6 +10,7 @@ import type { Config } from "../config.js";
 import type { Storage } from "../storage/Storage.js";
 import { runCollect } from "./handlers/collect.js";
 import { runStats } from "./handlers/stats.js";
+import { deniedMsg } from "../messages/templates.js";
 import { HOT_VALUES } from "../types.js";
 import { logger } from "../utils/logger.js";
 
@@ -39,13 +40,16 @@ export interface BotHooks {
 export function createBot(config: Config, storage: Storage, hooks?: BotHooks): Telegraf {
   const bot = new Telegraf(config.telegramToken);
 
-  // 來源白名單(公開 repo 防護):只處理名單內 chat/user 的訊息,其餘直接丟棄(不處理、不回覆)。
+  // 來源白名單(公開 repo 防護):只處理名單內 chat/user 的訊息,其餘丟棄(不寫池、不進 handler),
+  // 但回一句「沒有權限」提示 —— 完全靜默會讓誤加的自己人以為 bot 壞了(要翻 Actions log 才撈得到 id)。
+  // 同一 chat 每次進程只提醒一次(drain=每輪一次),陌生人連發也不會被回覆灌爆。
   // 放在所有 handler 之前 → polling 與 drain(handleUpdate)兩條路都涵蓋。
   // 比對 chat.id(私訊=你的 user id;群組=群 id)或 from.id(發訊者),命中其一即放行。
   // 空名單=不限制(僅 memory 乾跑/開發;sheets 模式 config 已 fail-fast 強制要求設定)。
   if (config.allowedChatIds.length > 0) {
     const allowed = new Set(config.allowedChatIds);
-    bot.use((ctx, next) => {
+    const deniedNotified = new Set<number>();
+    bot.use(async (ctx, next) => {
       const chatId = ctx.chat?.id;
       const fromId = ctx.from?.id;
       if ((chatId != null && allowed.has(chatId)) || (fromId != null && allowed.has(fromId))) {
@@ -53,7 +57,25 @@ export function createBot(config: Config, storage: Storage, hooks?: BotHooks): T
       }
       // 丟棄但不報錯:drain 會照常 ack 推進 offset,避免垃圾訊息每輪重領卡住佇列。
       logger.warn(`擋下非授權來源:chat=${chatId} from=${fromId}(不在 ALLOWED_CHAT_IDS)`);
-      return Promise.resolve();
+      // 提示是 best-effort:reply 失敗(被封鎖等)不能拋出,否則這筆會被 drain 記成處理例外。
+      // 回覆帶上發訊者自己的 id、並(若有設 errorChatId)一併通知管理員 → 被擋的自己人可自助上白名單。
+      if (chatId != null && !deniedNotified.has(chatId)) {
+        deniedNotified.add(chatId);
+        const denyId = fromId ?? chatId;
+        await ctx.reply(deniedMsg(denyId)).catch((e) => {
+          logger.warn(`回覆非授權來源提示失敗:chat=${chatId}`, e);
+        });
+        // 通知管理員(errorChatId 有設才發):把被擋 id + username 推給管理員,一鍵決定放不放行。
+        if (config.errorChatId) {
+          const uname = ctx.from?.username ? ` @${ctx.from.username}` : "";
+          await ctx.telegram
+            .sendMessage(
+              config.errorChatId,
+              `🔔 有人想用 bot 但不在白名單：id=${denyId}${uname}。放行就把這 id 加進 ALLOWED_CHAT_IDS。`,
+            )
+            .catch((e) => logger.warn(`通知管理員被擋來源失敗:chat=${chatId}`, e));
+        }
+      }
     });
   }
 
