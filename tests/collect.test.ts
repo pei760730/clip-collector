@@ -182,4 +182,54 @@ describe("runCollect", () => {
     );
     expect(persistFailed).toBe(false);
   });
+
+  it("expandShortUrls:true + 注入 fake 展開器 → 收「展開後」網址(不打網路)", async () => {
+    const storage = new MemoryStorage();
+    const shortUrl = "https://vt.tiktok.com/ZSabc123";
+    const fullUrl = "https://www.tiktok.com/@u/video/7234567890";
+    let called = "";
+    const r = await runCollect(
+      { text: `${shortUrl} 短鏈分享` },
+      {
+        storage,
+        expandShortUrls: true,
+        expandShortUrl: async (url) => {
+          called = url;
+          return url === shortUrl ? fullUrl : url;
+        },
+      },
+    );
+    expect(called).toBe(shortUrl); // fake 被呼叫、gate 有生效
+    expect(r.error).toBeUndefined();
+    expect(r.reply).toContain("已收進參考池");
+    const all = await storage.readAll();
+    expect(all).toHaveLength(1);
+    const row = all[0]!;
+    // 存進參考池的是「展開後」的網址,不是短鏈
+    expect(row.平台).toBe("tiktok");
+    expect(row.連結).toBe(fullUrl);
+    expect(row.連結).not.toContain("vt.tiktok.com");
+    // dedupKey 走展開後網址 → 用 watch?v 等價短鏈同片會撞成同 key
+    expect(r.hotKey).toContain("tiktok_7234567890");
+  });
+
+  it("expandShortUrls:false(既有契約)→ 不展開,原短鏈路徑收錄", async () => {
+    const storage = new MemoryStorage();
+    const shortUrl = "https://vt.tiktok.com/ZSabc123";
+    let called = false;
+    const r = await runCollect(
+      { text: `${shortUrl} 不展開` },
+      {
+        storage,
+        expandShortUrls: false,
+        expandShortUrl: async (url) => {
+          called = true;
+          return url;
+        },
+      },
+    );
+    expect(called).toBe(false); // gate 關 → fake 完全沒被叫
+    const row = (await storage.readAll())[0]!;
+    expect(row.連結).toContain("vt.tiktok.com");
+  });
 });
