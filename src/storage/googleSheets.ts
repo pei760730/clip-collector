@@ -1,15 +1,15 @@
 /**
- * Google Sheets 版 Storage —— 目標 = voc 的「參考池」分頁(2026-06-22 直寫,廢「暫存區」)。
+ * Google Sheets 版 Storage —— 目標 = TeaBus-VOC(tbvoc)的「參考池」分頁(2026-06-22 直寫,廢「暫存區」)。
  * - 最小權限:只用 spreadsheets scope。
  * - 寫入一律 RAW(避免影片ID/開頭 0 被當數字)。
- * - append 用 values.append;不刪列(參考池是 voc 永久池,prune 已退役)。
- * - 不自建/不覆寫表頭:參考池由 voc `init-sheet` 擁有;bot 不替 voc 動表結構。
+ * - append 用 values.append;不刪列(參考池是 tbvoc 永久池,prune 已退役)。
+ * - 不自建/不覆寫表頭:參考池由 tbvoc `init-sheet` 擁有;bot 不替 tbvoc 動表結構。
  *
  * 表頭飄移防護(2026-06-26):欄位對映改「依實際表頭具名解析」,不再假設固定欄序
  * (A=平台 B=連結 C=挑 D=加入日期)。表頭被重排、前面多一欄(如 legacy `id`)、後面有空欄,
  * 都能把值寫到正確的具名欄、讀回也對得上,而不是因為「順序/長度不完全相等」就把整輪 drain
  * 打掛(舊版 fail-fast 條件)。唯一仍 fail-fast 的情形 = 某個必要欄「整個不存在」——
- * 那才是真的會錯欄毀 voc 池,寧可停下等人對齊(維持 CLAUDE.md 安全網本意)。
+ * 那才是真的會錯欄毀 tbvoc 池,寧可停下等人對齊(維持 CLAUDE.md 安全網本意)。
  */
 import { google, type sheets_v4 } from "googleapis";
 import {
@@ -64,7 +64,7 @@ export class GoogleSheetsStorage implements Storage {
     return `'${this.sheetName}'!${a1}`;
   }
 
-  /** 確認分頁存在(參考池由 voc 擁有,bot 不自建);不存在 → fail-fast。 */
+  /** 確認分頁存在(參考池由 tbvoc 擁有,bot 不自建);不存在 → fail-fast。 */
   private async assertTab(): Promise<void> {
     const meta = await withRetry("取分頁清單", () =>
       this.sheets.spreadsheets.get({
@@ -75,7 +75,7 @@ export class GoogleSheetsStorage implements Storage {
     const titles = (meta.data.sheets ?? []).map((s) => s.properties?.title);
     if (titles.includes(this.sheetName)) return;
     throw new Error(
-      `找不到分頁「${this.sheetName}」。參考池由 voc 擁有,請先用 voc init-sheet 建表(bot 不自建 voc 的表)。`,
+      `找不到分頁「${this.sheetName}」。參考池由 TeaBus-VOC 擁有,請先用 tbvoc init-sheet 建表(bot 不自建 tbvoc 的表)。`,
     );
   }
 
@@ -97,7 +97,7 @@ export class GoogleSheetsStorage implements Storage {
   }
 
   async ensureHeader(): Promise<void> {
-    // 不替 voc 改表頭:只「讀 + 解析 + 驗證必要欄齊全」。缺欄就丟錯等人對齊。
+    // 不替 tbvoc 改表頭:只「讀 + 解析 + 驗證必要欄齊全」。缺欄就丟錯等人對齊。
     await this.layout();
   }
 
@@ -142,7 +142,10 @@ export class GoogleSheetsStorage implements Storage {
     if (this.dedupCache) return this.dedupCache;
     const index = new Map<string, RefRow>();
     for (const h of await this.readRows()) {
-      index.set(dedupKey(h.row.連結), h.row);
+      // 同 key 多列(歷史殘留/手貼重複)保「第一筆」:duplicateMsg 講的是「首次加入」,
+      // 後蓋前會把最舊那筆的加入日期蓋成最新、語意反掉。
+      const key = dedupKey(h.row.連結);
+      if (!index.has(key)) index.set(key, h.row);
     }
     this.dedupCache = index;
     return index;
