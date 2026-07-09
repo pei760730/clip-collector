@@ -12,11 +12,13 @@
  * 從前這裡手抄 VOC_REFS_COLUMNS / VOC_PLATFORM_CODES 鏡像常數,改 tbvoc 忘了同步就默默壞;
  * 改成載入 vendored 契約後,SSoT 單一化、漂移即紅。
  */
+import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
 import { POOL_COLUMNS, PLATFORM_CODE, HOT_VALUES, type Platform } from "../src/types.js";
+import { dedupKey } from "../src/pipeline/index.js";
 import { detectPlatform } from "@pei760730/collector-core";
 
 // 上游 VOC 引擎發布的 collector 契約(欄名 / 平台碼 / 夯度值)。schema.json 只認需要的欄位。
@@ -25,6 +27,11 @@ interface EngineSchema {
   columns: string[];
   platformCodes: string[];
   hotValues: string[];
+}
+interface DedupVectors {
+  same_group: { name: string; urls: string[] }[];
+  distinct: { name: string; urls: string[] }[];
+  edge_cases: { name: string; why: string; url: string; expect: "id" | "path" }[];
 }
 
 // vendored schema 過期偵測的最低門檻:上游 tbvoc bump 了 schemaVersion 卻忘了重新 vendor 時,
@@ -37,6 +44,14 @@ const MIN_SCHEMA_VERSION = "1";
 const schema: EngineSchema = JSON.parse(
   readFileSync(new URL("../contracts/teabus/schema.json", import.meta.url), "utf8"),
 ) as EngineSchema;
+
+// dedup_vectors.json 讀 @pei760730/collector-core 隨包發布的 canonical(core 是 TS pipeline SSOT,
+// dedupKey 即 core groupKey,經 dep pin)。不在本 repo vendor 這份;改去重規則 → 先改 core canonical
+// → bump core tag。port 自 short-video-bot tests/contract.test.ts(三胞胎同一段 conformance)。
+const _vectorsPath = createRequire(import.meta.url).resolve(
+  "@pei760730/collector-core/contracts/voc/dedup_vectors.json",
+);
+const vectors = JSON.parse(readFileSync(_vectorsPath, "utf8")) as DedupVectors;
 
 describe("上游 VOC 引擎契約:vendored schema 版本不落後", () => {
   it(`vendored schemaVersion(${schema.schemaVersion})>= 預期最低版本(${MIN_SCHEMA_VERSION})`, () => {
@@ -90,6 +105,35 @@ describe("上游 VOC 引擎契約:bot 平台碼 ⊆ tbvoc 認得的小寫碼", (
       expect(platform).not.toBe("Unknown");
       expect(PLATFORM_CODE[platform]).toBe(code);
       expect(allowed.has(code)).toBe(true);
+    });
+  }
+});
+
+const isPathKey = (k: string) => k.startsWith("http");
+
+// 從前 cc 沒這段 conformance:XHS 大寫 hex、fb.com alias 等收斂規則只有 svb/core 在守,
+// cc 的 dedupKey 漂移(或 core bump 帶進行為變化)不會在本 repo CI 先紅 → 補上守門。
+describe("去重契約:dedup 分群等價(TS groupKey 對 core dedup_vectors)", () => {
+  for (const g of vectors.same_group) {
+    it(`same_group「${g.name}」收斂同一 key`, () => {
+      const keys = new Set(g.urls.map(dedupKey));
+      expect(keys.size).toBe(1);
+    });
+  }
+
+  for (const g of vectors.distinct) {
+    it(`distinct「${g.name}」互不同 key`, () => {
+      const keys = g.urls.map(dedupKey);
+      expect(new Set(keys).size).toBe(keys.length);
+    });
+  }
+
+  // 2026-06-27 起所有 edge_case 兩語一致(裸 19 碼抽取已砍除,vt.tiktok 短路徑 TS 與 Python 都退路徑),
+  // 不再有「靠展開消弭」的 TS/Python 分歧 → 全部都驗(無 skip)。
+  for (const e of vectors.edge_cases) {
+    it(`edge「${e.name}」TS groupKey 為 ${e.expect}`, () => {
+      const got = isPathKey(dedupKey(e.url)) ? "path" : "id";
+      expect(got).toBe(e.expect);
     });
   }
 });
