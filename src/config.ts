@@ -12,6 +12,7 @@ import {
   loadGoogleCredentials,
   type GoogleServiceAccountCredentials,
 } from "@pei760730/collector-core";
+import { logger } from "./utils/logger.js";
 
 // env 解析原語(required/optional/boolEnv/enumEnv/chatIdsEnv/loadGoogleCredentials)已抽進
 // collector-core(v0.3.0),三個 collector 共用一份;本檔只留 bot 專屬的 Config 型別 + loadConfig 組裝。
@@ -72,6 +73,14 @@ export function loadConfig(): Config {
   if (storage === "sheets" && cached.allowedChatIds.length === 0) {
     throw new Error(
       "STORAGE=sheets 但未設 ALLOWED_CHAT_IDS:正式寫表必須限定來源 chat id(逗號分隔純數字),否則公開後任何人都能灌你的參考池",
+    );
+  }
+  // 告警鏈斷線提醒:sheets 模式(=正式跑)沒設 ERROR_CHAT_ID 時,notifyError / drain 中止告警
+  // 全部 no-op —— 寫表壞掉只剩 Actions log 可翻,等於默默斷線。不 fail-fast(告警是輔助、非必要),
+  // 但開機就大聲講一次,別等出事才發現一直沒在通知。
+  if (storage === "sheets" && !cached.errorChatId) {
+    logger.warn(
+      "STORAGE=sheets 但未設 ERROR_CHAT_ID:寫入失敗/異常不會發 Telegram 告警(告警鏈斷線),只能翻 Actions log",
     );
   }
   return cached;
