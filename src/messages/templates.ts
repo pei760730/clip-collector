@@ -22,12 +22,12 @@ export function successMsg(
   opts: { unsupported: boolean; isShortUrl: boolean; note?: string },
 ): string {
   const lines = [
-    `${iconFor(row.平台)} 已收進參考池`,
-    `平台:${row.平台}`,
-    `連結:${row.連結}`,
+    "✅ 已收進參考池!",
+    `${iconFor(row.平台)} 平台:${row.平台}`,
+    `🔗 連結:${row.連結}`,
   ];
-  if (opts.note) lines.push(`備註:${opts.note}`);
-  lines.push(`加入日期:${row.加入日期}`);
+  if (opts.note) lines.push(`📝 備註:${opts.note}`);
+  lines.push(`📅 加入日期:${row.加入日期}`);
   if (opts.unsupported) {
     // 抓不到 video id(平台不支援 / fallback):去重退回連結路徑,仍會收;提醒可能不準。
     lines.push("⚠️ 這個平台抓不到 video ID,以連結本身去重收錄。");
@@ -35,6 +35,7 @@ export function successMsg(
   if (opts.isShortUrl) {
     lines.push("🔗 偵測到短網址,已標記。");
   }
+  lines.push("👇 順手幫這支標個夯度?");
   return lines.join("\n");
 }
 
