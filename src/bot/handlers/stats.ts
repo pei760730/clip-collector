@@ -5,7 +5,7 @@
  * 故此統計反映「目前池中(還沒挑)」的素材,不含已挑/已拍。
  */
 import type { Storage } from "../../storage/Storage.js";
-import { ICON_BY_CODE } from "../../platformIcon.js";
+import { iconFor } from "../../platformIcon.js";
 
 export interface StatsDeps {
   storage: Storage;
@@ -32,8 +32,8 @@ export async function runStats(deps: StatsDeps): Promise<string> {
   const platformLines = capList(s.byPlatform);
 
   const recentLines = s.recent.map((r) => {
-    const icon = ICON_BY_CODE[r.平台] ?? "•";
-    return `  ${icon} ${r.連結}（${r.加入日期}）`;
+    // core iconFor 內建「認不得回 •」的 fallback,不再本地手寫 ?? "•"(三 bot 統一走 core)。
+    return `  ${iconFor(r.平台)} ${r.連結}（${r.加入日期}）`;
   });
 
   const out = [
@@ -49,5 +49,6 @@ export async function runStats(deps: StatsDeps): Promise<string> {
   ].join("\n");
 
   // Telegram 單則上限 4096;保險再硬切
-  return out.length > 3900 ? out.slice(0, 3900) + "\n…(已截斷)" : out;
+  // 用 code point 切,避免 String.slice 把 emoji 的 surrogate pair 切一半吐出壞字(Telegram 400)。
+  return out.length > 3900 ? [...out].slice(0, 3900).join("") + "\n…(已截斷)" : out;
 }

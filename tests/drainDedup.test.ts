@@ -117,4 +117,19 @@ describe("drain 單輪去重不 N+1(values.get 資料讀 O(1))", () => {
     expect(calls.append).toBe(1); // 沒有重寫
     expect(calls.dataGet).toBe(1); // 全程只讀一次全表
   });
+
+  it("表上同 key 多列(歷史殘留)→ dedupIndex 保第一筆,重複回覆顯示最早的加入日期", async () => {
+    // duplicateMsg 講「首次加入」;從前 dedupIndex 後蓋前,會把首次日期蓋成最新列的,語意反掉。
+    const url = "https://www.tiktok.com/@u/video/7234567890";
+    dataRows = [
+      ["tiktok", url, "", "2026-01-01", ""],
+      ["tiktok", url, "", "2026-06-30", ""],
+    ];
+    const storage = makeStorage();
+    const r = await runCollect({ text: `${url} 又貼` }, { storage, expandShortUrls: false });
+    expect(r.reply).toContain("已經收過");
+    expect(r.reply).toContain("2026-01-01"); // 首次加入 = 第一筆
+    expect(r.reply).not.toContain("2026-06-30"); // 不是被後列蓋掉的日期
+    expect(calls.append).toBe(0); // 重複不寫入
+  });
 });
