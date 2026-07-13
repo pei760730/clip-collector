@@ -19,7 +19,7 @@ export function formatErrorMsg(): string {
 
 export function successMsg(
   row: RefRow,
-  opts: { unsupported: boolean; isShortUrl: boolean; note?: string },
+  opts: { unsupported: boolean; isShortUrl: boolean; note?: string; truncated: boolean },
 ): string {
   const lines = [
     "✅ 已收進參考池!",
@@ -34,6 +34,11 @@ export function successMsg(
   }
   if (opts.isShortUrl) {
     lines.push("🔗 偵測到短網址,已標記。");
+  }
+  if (opts.truncated) {
+    // core parseMessage 的 fanout-safety 截斷(連結>2048 / 備註>2000)。之前 cc 完全沒讀
+    // 這個旗標 = 啞欄,分享者不知道存進去的是被剪過的版本。
+    lines.push("⚠️ 連結/備註太長,超過上限的部分已剪掉囉!");
   }
   lines.push("👇 順手幫這支標個夯度?");
   return lines.join("\n");
