@@ -213,6 +213,39 @@ describe("runCollect", () => {
     expect(r.hotKey).toContain("tiktok_7234567890");
   });
 
+  it("備註超長(>2000)被 core 截斷 → 成功回覆帶截斷提示", async () => {
+    const storage = new MemoryStorage();
+    const longNote = "笑".repeat(2100); // core MAX_NOTE_LEN=2000 → truncated=true
+    const r = await runCollect(
+      { text: `https://youtu.be/dQw4w9WgXcQ ${longNote}` },
+      deps(storage),
+    );
+    expect(r.error).toBeUndefined();
+    expect(r.reply).toContain("已收進參考池"); // 截斷不影響收錄本身
+    expect(r.reply).toContain("超過上限的部分已剪掉"); // 截斷提示(之前 truncated 是啞欄)
+    expect(await storage.readAll()).toHaveLength(1);
+  });
+
+  it("連結超長(>2048)被 core 截斷 → 成功回覆帶截斷提示", async () => {
+    const storage = new MemoryStorage();
+    // 有效 host + 超長 query:截到 2048 仍是合法 URL,照收但標 truncated。
+    const longUrl = `https://youtu.be/dQw4w9WgXcQ?x=${"a".repeat(2100)}`;
+    const r = await runCollect({ text: `${longUrl} 備註` }, deps(storage));
+    expect(r.error).toBeUndefined();
+    expect(r.reply).toContain("已收進參考池");
+    expect(r.reply).toContain("超過上限的部分已剪掉");
+  });
+
+  it("正常長度訊息 → 不出現截斷提示", async () => {
+    const storage = new MemoryStorage();
+    const r = await runCollect(
+      { text: "https://youtu.be/dQw4w9WgXcQ 正常備註" },
+      deps(storage),
+    );
+    expect(r.reply).toContain("已收進參考池");
+    expect(r.reply).not.toContain("剪掉"); // truncated=false → 無提示行
+  });
+
   it("expandShortUrls:false(既有契約)→ 不展開,原短鏈路徑收錄", async () => {
     const storage = new MemoryStorage();
     const shortUrl = "https://vt.tiktok.com/ZSabc123";

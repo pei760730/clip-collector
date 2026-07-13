@@ -26,6 +26,8 @@ export interface Draft {
   isShortUrl: boolean;
   /** 這次訊息的備註(參考池不存,只給回覆顯示用)。 */
   note: string;
+  /** 外部字串超出 core 上限被截斷(連結>2048 / 備註>2000);只給回覆提示用。 */
+  truncated: boolean;
 }
 
 /**
@@ -55,5 +57,6 @@ export function assembleDraft(parsed: ParsedMessage, now: () => number = Date.no
     unsupported: vid.unsupported,
     isShortUrl: cleaned.isShortUrl,
     note: parsed.note,
+    truncated: parsed.truncated,
   };
 }
