@@ -47,6 +47,14 @@ export class GoogleSheetsStorage implements Storage {
   private layoutCache?: HeaderLayout;
   /** 去重索引快取(dedupKey→列)。單輪生命週期內讀一次全表建好;append 成功後併入新 key。 */
   private dedupCache?: Map<string, RefRow>;
+  /**
+   * 「dedupKey→實體列號」快取 —— 每次全表讀(readRows)順手重建,setHot 命中即免整表 values.get
+   * (讀放大修正:舊版每按一次夯度按鈕就全表讀一次定位)。
+   * 過期窗:gas pickScan_ 勾「挑」搬列會刪列,快取列號可能過期 → 寫錯列。這與舊版「讀完列號才
+   * update」本來就有的 read-then-write 窗同型,只是拉長到單輪生命週期;參考池單輪內
+   * pickScan_ 撞正在標夯度的列機率極低,接受(與 dedupCache 同壽命,單輪即棄)。
+   */
+  private rowByKey?: Map<string, number>;
 
   constructor(opts: GoogleSheetsOptions) {
     this.sheetId = opts.sheetId;
@@ -128,10 +136,19 @@ export class GoogleSheetsStorage implements Storage {
 
   async readRows(): Promise<DuplicateHit[]> {
     const layout = await this.layout();
-    return (await this.rawRows(layout)).map((r) => ({
+    const hits = (await this.rawRows(layout)).map((r) => ({
       row: readNamedRow(r.cells, POOL_COLUMNS, layout) as unknown as RefRow,
       rowNumber: r.rowNumber,
     }));
+    // 每次全表讀都「整份重建」列號快取(不是併入):這是最新快照,直接取代最不會殘留過期列號。
+    // 同 key 多列保第一筆,對齊 dedupIndex 的語意(舊 setHot 用 .find 也是取第一筆)。
+    const rowByKey = new Map<string, number>();
+    for (const h of hits) {
+      const k = dedupKey(h.row.連結);
+      if (k && !rowByKey.has(k)) rowByKey.set(k, h.rowNumber);
+    }
+    this.rowByKey = rowByKey;
+    return hits;
   }
 
   /**
@@ -198,16 +215,38 @@ export class GoogleSheetsStorage implements Storage {
     const layout = await this.layout();
     const hotIdx = layout.indexOf["夯度"]; // POOL_COLUMNS 含夯度 → layout 必有(否則 layout() 早已 fail-fast)
     if (hotIdx === undefined) return false;
-    const target = (await this.readRows()).find((h) => dedupKey(h.row.連結) === key);
-    if (!target) return false; // 已挑走 / 找不到
-    const a1 = `${colLetter(hotIdx)}${target.rowNumber}`;
-    await withRetry("setHot", () =>
-      this.sheets.spreadsheets.values.update({
-        spreadsheetId: this.sheetId,
-        range: this.range(a1),
-        valueInputOption: "RAW",
-        requestBody: { values: [[hot]] },
-      }),
+    // 讀放大修正:先查單輪內既有的列號快取(dedupIndex / append 護欄等任何 readRows 都會順手建),
+    // 命中就免掉一次全表 values.get;miss(本輪還沒全表讀過 / 該列是快取建好後才出現)才退回
+    // 全表讀重建快取再查一次。列號過期窗見 rowByKey 欄位註解(與舊版同型,接受)。
+    let rowNumber = this.rowByKey?.get(key);
+    if (rowNumber === undefined) {
+      await this.readRows(); // 重建 key→列號 快取
+      rowNumber = this.rowByKey?.get(key);
+    }
+    if (rowNumber === undefined) return false; // 已挑走 / 找不到
+    const a1 = `${colLetter(hotIdx)}${rowNumber}`;
+    await withRetry(
+      "setHot",
+      () =>
+        this.sheets.spreadsheets.values.update({
+          spreadsheetId: this.sheetId,
+          range: this.range(a1),
+          valueInputOption: "RAW",
+          requestBody: { values: [[hot]] },
+        }),
+      {
+        // 冪等護欄(append alreadyDone 同款):「寫成功但回應遺失」觸發重試時,先讀目標「單格」——
+        // 已是要寫的值就視為完成,不重打(重打雖是同格同值冪等,但列號在重試窗內可能因
+        // pickScan_ 刪列而過期,能不重打就不重打)。只讀 1 格、不做全表讀,與本次讀放大修正
+        // 一致;正常路徑(無重試)不多打任何讀。護欄查詢本身失敗由 withRetry 吞掉照常重試(降級)。
+        alreadyDone: async () => {
+          const res = await this.sheets.spreadsheets.values.get({
+            spreadsheetId: this.sheetId,
+            range: this.range(a1),
+          });
+          return String(res.data.values?.[0]?.[0] ?? "") === hot;
+        },
+      },
     );
     return true;
   }
