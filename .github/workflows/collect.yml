@@ -1,12 +1,11 @@
 name: collect
 
-# 定時把 Telegram 這段時間囤的訊息撈乾、解析、寫進「參考池」,然後結束。
-# 取代常駐機器:repo 是 public → Actions 免費額度無上限,$0。
-# Telegram 保留未領更新約 24h,只要間隔 < 24h 就不漏訊息。
+# ⚠️ 排程已退役(2026-07-14,#9 三併一):tbvoc 生產 drain 已移至 short-video-bot
+# (未來改名 collector)collect.yml 的 tbvoc matrix job(TBVOC_* secrets,端到端驗證:
+# run 29346517626 收錄 1 筆真訊息落表)。本檔留 workflow_dispatch 當備援 ——
+# 同一隻 bot 同一張表,緊急時手動補跑一輪,行為與過去完全相同。
 on:
-  schedule:
-    - cron: "*/5 * * * *" # 每 5 分(排程下限);GitHub 對 public repo 高頻 cron 大幅節流,實際約 2–3h 一跑(仍遠 < Telegram 24h 留存)
-  workflow_dispatch: {} # 手動補跑
+  workflow_dispatch: {} # 備援手動補跑(生產排程在 collector repo)
 
 permissions:
   contents: read
